@@ -1,56 +1,77 @@
-// var express = require('express');
-// var app = express();
-// var path = require('path');
-// var serveIndex = require('serve-index');
-
-// app.use(express.static(path.join(__dirname, '/public')));
-// app.use('/', serveIndex(path.join(__dirname, '/public')));
-
-// app.listen(8081, function () {
-// 	console.log('listing at 8081')
-// });
-
+import path from 'path';
 import Express from 'express';
 
 import React from 'react';
-import { renderToString } from 'react-dom/server';
+import { renderToString, renderToStaticMarkup } from 'react-dom/server';
 
 import Html from 'containers/Html';
 import App from 'containers/App';
-//import { StaticRouter as Router, matchPath } from 'react-router';
-import { StaticRouter as Router } from 'react-router';
+
+import { StaticRouter as Router, matchPath } from 'react-router';
 
 //Todo move to services
 import fetch from 'node-fetch';
 
+import { Provider } from 'react-redux';
+
+import configureStore from './store';
+
 
 let server = new Express();
+
+
+//server.use(Express.static(path.resolve(__dirname + '/public')));
+
 let port = process.env.PORT || 8081;
+
+server.use("/static", Express.static(__dirname + '/static'));
 
 //get routes
 const routes = [
 	'/',
-	'/pages/:pageId'
+	'/about'
 ];
 
+let initialState = {};
+
 //TODO api endpoints that connect to the wordpress api
+let store = configureStore(initialState);
+
+
+// server.use('/public', function (req, res) {
+// 	console.log('got a request to public');
+// });
+
+//server.use(Express.static(path.join(__dirname))); //here you can change your path. for example you could add + 'public' if all of your files where in the 'public' directory
 
 
 server.get('*', (req, res, next)=> {
+	console.log('got a regular request');
+	console.log(req.url);
+	const match = routes.reduce((acc, route) => matchPath(req.url, route, { exact: true }) || acc, null);
 
-	fetch('http://localhost:8080/wp-json/wp/v2/pages').then( (res, err) => {
-		return res.json();
+	if (!match) {
+    res.status(404).send(renderToString(<NoMatch />));
+    return;
+  }
+
+	//need to get appropriate data based on location
+	fetch('http://localhost:8080/wp-json/wp/v2/pages').then( (response, err) => {
+		return response.json();
 	}).then( (json)=> {
-		console.log(json);
-		const app = renderToString(
-			<Router context={{}} location={req.url}>
-		    <App
-					data={json}
-		    />
-	  	</Router>
+
+
+		const app = renderToStaticMarkup(
+			<Provider store={store}>
+				<Router context={{}} location={req.url}>
+					<App
+						pages={json}
+					/>
+				</Router>
+			</Provider>
 		);
 
-		const html = renderToString(<Html
+		const html = renderToStaticMarkup(<Html
 			title="the title please"
 			html={app}
 		/>);
@@ -60,11 +81,10 @@ server.get('*', (req, res, next)=> {
 		res.set('content-type', 'text/html').status(200).send('<!DOCTYPE html>' + ieHtmlClass + html);
 
 
-	})
-
-
-})
-
+	});
+});
 
 
 server.listen(port, () => console.log('Listening on port %d', port) );
+
+

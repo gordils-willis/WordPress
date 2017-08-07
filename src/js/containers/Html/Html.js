@@ -12,10 +12,10 @@ const Html = ({html, title}) => {
 			</head>
 			<body>
 				<div className="app" id="root" dangerouslySetInnerHTML={{__html: html}}></div>
-				<script src="main.js"></script>
+				<script src="/static/main.js"></script>
 			</body>
 		</html>
 	);
-}
+};
 
 export default Html;
